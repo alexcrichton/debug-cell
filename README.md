@@ -1,4 +1,4 @@
-# stacker
+# debug-cell
 
 [![Build Status](https://travis-ci.org/alexcrichton/debug-cell.svg?branch=master)](https://travis-ci.org/alexcrichton/debug-cell)
 
