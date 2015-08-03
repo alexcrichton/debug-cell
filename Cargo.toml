@@ -5,7 +5,3 @@ authors = ["Alex Crichton <alex@alexcrichton.com>"]
 
 [dependencies]
 backtrace = "0.1"
-
-[lib]
-name = "debug_cell"
-doctest = false
