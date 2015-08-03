@@ -2,6 +2,16 @@
 name = "debug-cell"
 version = "0.1.0"
 authors = ["Alex Crichton <alex@alexcrichton.com>"]
+license = "MIT/Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/alexcrichton/debug-cell"
+homepage = "https://github.com/alexcrichton/debug-cell"
+documentation = "http://alexcrichton.com/debug-cell"
+description = """
+A clone of the standard library's `RefCell` type with extra debugging support in
+non-release builds. Whenever a borrow error happens the current locations of
+where known borrows were created will be printed out as well.
+"""
 
 [dependencies]
 backtrace = "0.1"
