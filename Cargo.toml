@@ -5,3 +5,7 @@ authors = ["Alex Crichton <alex@alexcrichton.com>"]
 
 [dependencies]
 backtrace = "0.1"
+
+[[test]]
+name = "smoke"
+harness = false
