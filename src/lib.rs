@@ -48,12 +48,7 @@ pub struct RefCell<T: ?Sized> {
 type Location = ();
 
 #[cfg(debug_assertions)]
-struct Location {
-    file: Option<String>,
-    name: Option<String>,
-    line: Option<u32>,
-    addr: Option<*mut u8>,
-}
+type Location = backtrace::Backtrace;
 
 /// An enumeration of values returned from the `state` method on a `RefCell<T>`.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -141,26 +136,12 @@ impl<T: ?Sized> RefCell<T> {
     #[cfg(debug_assertions)]
     #[allow(unused_must_use)]
     fn panic(&self, msg: &str) -> ! {
-        use std::fmt::Write;
-
         let mut msg = format!("RefCell<T> already {}", msg);
         let locations = self.borrow.locations.borrow();
         if locations.len() > 0 {
             msg.push_str("\ncurrent active borrows: \n");
-            for (i, b) in locations.iter().enumerate() {
-                write!(msg, "  {:2} -", i);
-                if let Some(f) = b.file.as_ref() {
-                    write!(msg, " {}", f);
-                    if let Some(line) = b.line {
-                        write!(msg, ":{}", line);
-                    }
-                } else if let Some(addr) = b.addr {
-                    write!(msg, " {:?}", addr);
-                }
-                if let Some(name) = b.name.as_ref() {
-                    write!(msg, " {}", name);
-                }
-                msg.push('\n');
+            for b in locations.iter() {
+                msg.push_str(&format!("-------------------------\n{:?}\n", b));
             }
             msg.push_str("\n\n");
         }
@@ -207,41 +188,7 @@ fn get_caller() -> Location {}
 #[inline(never)]
 #[cfg(debug_assertions)]
 fn get_caller() -> Location {
-    let mut loc = Location {
-        file: None,
-        line: None,
-        name: None,
-        addr: None,
-    };
-    let mut i = 0;
-    backtrace::trace(&mut |frame| {
-        // Skip the first 3 frames as it's:
-        //
-        //  * get_caller()
-        //  * BorrowRef{,Mut}::new
-        //  * RefCell::borrow{,_mut}
-        if i == 4 {
-            let ip = frame.ip();
-            loc.addr = Some(ip as *mut u8);
-            backtrace::resolve(ip, &mut |symbol| {
-                loc.name = symbol.name().map(|s| {
-                    let s = String::from_utf8_lossy(s);
-                    let mut sym = String::new();
-                    let _ = backtrace::demangle(&mut sym, &s);
-                    sym
-                });
-                loc.file = symbol.filename().map(|s| {
-                    String::from_utf8_lossy(s).into_owned()
-                });
-                loc.line = symbol.lineno();
-            });
-            false // stop the backtrace
-        } else {
-            i += 1;
-            true
-        }
-    });
-    return loc
+    backtrace::Backtrace::new()
 }
 
 unsafe impl<T: ?Sized> Send for RefCell<T> where T: Send {}

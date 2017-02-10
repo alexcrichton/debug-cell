@@ -18,12 +18,12 @@ fn main() {
     } else {
         runtest("child1", &[
             "current active borrow",
-            "tests/smoke.rs:11 smoke::main",
-            "tests/smoke.rs:12 smoke::main",
+            "tests/smoke.rs:11",
+            "tests/smoke.rs:12",
         ]);
         runtest("child2", &[
             "current active borrow",
-            "tests/smoke.rs:16 smoke::main",
+            "tests/smoke.rs:16",
         ]);
     }
 }
