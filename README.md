@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/alexcrichton/debug-cell.svg?branch=master)](https://travis-ci.org/alexcrichton/debug-cell)
 
-[Documentation](http://alexcrichton.com/debug-cell)
+[Documentation](https://docs.rs/debug-cell)
 
 A clone of the standard library's `RefCell` type with extra debugging support in
 non-release builds. Whenever a borrow error happens the current locations of
