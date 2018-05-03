@@ -6,7 +6,7 @@ license = "MIT/Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/alexcrichton/debug-cell"
 homepage = "https://github.com/alexcrichton/debug-cell"
-documentation = "http://alexcrichton.com/debug-cell"
+documentation = "https://docs.rs/debug-cell"
 description = """
 A clone of the standard library's `RefCell` type with extra debugging support in
 non-release builds. Whenever a borrow error happens the current locations of
