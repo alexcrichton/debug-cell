@@ -1,27 +1,22 @@
 language: rust
-rust:
-  - stable
-  - beta
-  - nightly
-sudo: false
-before_script:
-  - pip install 'travis-cargo<0.2' --user && export PATH=$HOME/.local/bin:$PATH
+matrix:
+  include:
+    - rust: stable
+    - rust: beta
+    - rust: nightly
+    - name: "master doc to gh-pages"
+      rust: nightly
+      script:
+        - cargo doc --no-deps
+      deploy:
+        provider: script
+        script: curl -LsSf https://git.io/fhJ8n | rustc - && (cd target/doc && ../../rust_out)
+        skip_cleanup: true
+        on:
+          branch: master
 script:
-  - cargo test
-  - cargo test --release
-  - cargo doc --no-deps
-after_success:
-  - travis-cargo --only nightly doc-upload
-  - travis-cargo coveralls --no-sudo
+  - cargo build --verbose
+  - cargo test --verbose
 notifications:
   email:
     on_success: never
-addons:
-  apt:
-    packages:
-      - libcurl4-openssl-dev
-      - libelf-dev
-      - libdw-dev
-env:
-  global:
-    secure: "HWKYvFjKnHmcjAHiIkXl8QJzFMUMof3aXUIlQ4kEvLfv8pRZyNnbg1FpdjuP4XKm7UCxL+EN9xDxl9itZ9nSvEww49nSwZGoxhJprdJyBrpqq1UcTiFyhYvzHbaHc9Rn6pVyzgpHes+wBDcAkMhrIFDyLcFjX7Jjql4EG9uPs9Sm/mUGN3Sx6OJYJazG1Dc0fvgUV2N/knFTQOJbAsGZEWm2R70OQSxtMhwqf5Ejtm2oLPNM2+kj8UTJUkKx8oC5+MyUqH87oVSby/8LC1w4wMdLofyLLwFBRLfwXwBRaWgZl8NVlJkWTm43izhMaX6zvpfStFdck5+Y+Qtj0HXqwMF4s2BFdnzm9ddoilQgJa65DsAnpnajv8xKhYOsHM5IgfEOOK0kOxlXRZco2YKqA1RV3OpIV3WAV0CCzv7+u20MFDIQMEFjmVXOx322n23CBvUIam54oK2Q/vBQbureJnJQ6o/rvhZtPWTyp74WmWZaTW9T5vMtRytdBmrpL3x2XfhZMvuNbf7xsH4pZ8Z046YlSx9IvC5k4whjy1GtmQX0n77ATuBgExrDVWNNoni+V1EhKnc2+QhkgPgcYys5Gyd50OghAuuQfpfBolfIcTOEpnpbteNmQVteZwbj2vStmN+pcr2IohTLB8k+JmZQ3CCJCqp6XNjotMWSz8uuHzQ="
