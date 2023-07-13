@@ -374,6 +374,38 @@ pub struct Ref<'b, T: ?Sized + 'b> {
     _borrow: BorrowRef<'b>,
 }
 
+impl<'b, T: ?Sized + 'b> Ref<'b, T> {
+    /// Makes a new `Ref` for a component of the borrowed data.
+    ///
+    /// The `RefCell` is already immutably borrowed, so this cannot fail.
+    ///
+    /// This is an associated function that needs to be used as `Ref::map(...)`.
+    /// A method would interfere with methods of the same name on the contents
+    /// of a `RefCell` used through `Deref`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::cell::{RefCell, Ref};
+    ///
+    /// let c = RefCell::new((5, 'b'));
+    /// let b1: Ref<'_, (u32, char)> = c.borrow();
+    /// let b2: Ref<'_, u32> = Ref::map(b1, |t| &t.0);
+    /// assert_eq!(*b2, 5)
+    /// ```
+    #[inline]
+    pub fn map<U: ?Sized, F>(orig: Ref<'b, T>, f: F) -> Ref<'b, U>
+    where
+        F: FnOnce(&T) -> &U,
+    {
+        Ref {
+            _value: f(&*orig._value),
+            _borrow: BorrowRef::new(&orig._borrow.borrow)
+                .expect("this is already borrowed so it cannot fail"),
+        }
+    }
+}
+
 impl<'b, T: ?Sized> Deref for Ref<'b, T> {
     type Target = T;
     fn deref(&self) -> &T {
@@ -448,6 +480,26 @@ mod tests {
         drop(b);
 
         assert_eq!(*a.borrow(), 4);
+    }
+
+    #[test]
+    fn ok_borrows_map() {
+        let a = RefCell::new((0, 1));
+        let b = a.borrow();
+        let c = super::Ref::map(b, |v| &v.0);
+        assert_eq!(*c, 0);
+        assert!(a.try_borrow().is_ok());
+        assert!(a.try_borrow_mut().is_err());
+        drop(c);
+        assert!(a.try_borrow().is_ok());
+        assert!(a.try_borrow_mut().is_ok());
+
+        let mut b = a.borrow_mut();
+        assert_eq!(b.0, 0);
+        b.0 = 999;
+        drop(b);
+
+        assert_eq!(a.borrow().0, 999);
     }
 
     #[should_panic]
