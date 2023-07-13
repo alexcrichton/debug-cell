@@ -34,9 +34,9 @@ pub mod error {
     fn locations_display(locations: &[super::Location]) -> String {
         locations
             .iter()
-            .map(|location| format!("[{location}]"))
+            .map(|location| format!("  ---------------\n  {location}"))
             .collect::<Vec<_>>()
-            .join(", ")
+            .join("\n")
     }
     /// An error returned by [`RefCell::try_borrow`].
     #[non_exhaustive]
@@ -56,7 +56,7 @@ pub mod error {
             {
                 write!(
                     f,
-                    "Value is already borrowed mutably at [{}]",
+                    "Value is already borrowed mutably, current active borrows: \n{}\n\n",
                     locations_display(&self.already_borrowed_at)
                 )
             }
@@ -87,7 +87,7 @@ pub mod error {
             {
                 write!(
                     f,
-                    "Value is already borrowed at [{}]",
+                    "Value is already borrowed, current active borrows:\n{}\n\n",
                     locations_display(&self.already_borrowed_at)
                 )
             }
@@ -168,12 +168,9 @@ impl<T: ?Sized> RefCell<T> {
     #[cfg_attr(debug_assertions, inline(never))]
     #[cfg_attr(debug_assertions, track_caller)]
     pub fn borrow(&self) -> Ref<'_, T> {
-        match BorrowRef::new(&self.borrow) {
-            Some(b) => Ref {
-                _value: unsafe { &*self.value.get() },
-                _borrow: b,
-            },
-            None => self.panic("mutably borrowed"),
+        match self.try_borrow() {
+            Ok(value) => value,
+            Err(message) => panic!("Borrowing immutably failed: {}", message),
         }
     }
     /// Immutably borrows the wrapped value.
@@ -219,12 +216,9 @@ impl<T: ?Sized> RefCell<T> {
     #[cfg_attr(debug_assertions, inline(never))]
     #[cfg_attr(debug_assertions, track_caller)]
     pub fn borrow_mut(&self) -> RefMut<'_, T> {
-        match BorrowRefMut::new(&self.borrow) {
-            Some(b) => RefMut {
-                _value: unsafe { &mut *self.value.get() },
-                _borrow: b,
-            },
-            None => self.panic("borrowed"),
+        match self.try_borrow_mut() {
+            Ok(value) => value,
+            Err(message) => panic!("Borrowing mutably failed: {}", message),
         }
     }
 
