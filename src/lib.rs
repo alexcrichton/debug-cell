@@ -100,9 +100,6 @@ pub mod error {
 }
 
 #[cfg(debug_assertions)]
-extern crate backtrace;
-
-#[cfg(debug_assertions)]
 use std::cell::RefCell as StdRefCell;
 use std::cell::{Cell, UnsafeCell};
 use std::ops::{Deref, DerefMut};
