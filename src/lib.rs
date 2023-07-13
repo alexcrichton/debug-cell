@@ -170,7 +170,7 @@ impl<T: ?Sized> RefCell<T> {
     /// Panics if the value is currently mutably borrowed.
     #[cfg_attr(debug_assertions, inline(never))]
     #[cfg_attr(debug_assertions, track_caller)]
-    pub fn borrow<'a>(&'a self) -> Ref<'a, T> {
+    pub fn borrow(&self) -> Ref<'_, T> {
         match BorrowRef::new(&self.borrow) {
             Some(b) => Ref {
                 _value: unsafe { &*self.value.get() },
@@ -189,7 +189,7 @@ impl<T: ?Sized> RefCell<T> {
     /// Panics if the value is currently mutably borrowed.
     #[cfg_attr(debug_assertions, inline(never))]
     #[cfg_attr(debug_assertions, track_caller)]
-    pub fn try_borrow<'a>(&'a self) -> Result<Ref<'a, T>, crate::error::BorrowError> {
+    pub fn try_borrow(&self) -> Result<Ref<'_, T>, crate::error::BorrowError> {
         match BorrowRef::new(&self.borrow) {
             Some(b) => Ok(Ref {
                 _value: unsafe { &*self.value.get() },
@@ -221,7 +221,7 @@ impl<T: ?Sized> RefCell<T> {
     /// Panics if the value is currently borrowed.
     #[cfg_attr(debug_assertions, inline(never))]
     #[cfg_attr(debug_assertions, track_caller)]
-    pub fn borrow_mut<'a>(&'a self) -> RefMut<'a, T> {
+    pub fn borrow_mut(&self) -> RefMut<'_, T> {
         match BorrowRefMut::new(&self.borrow) {
             Some(b) => RefMut {
                 _value: unsafe { &mut *self.value.get() },
@@ -238,7 +238,7 @@ impl<T: ?Sized> RefCell<T> {
     ///
     #[cfg_attr(debug_assertions, inline(never))]
     #[cfg_attr(debug_assertions, track_caller)]
-    pub fn try_borrow_mut<'a>(&'a self) -> Result<RefMut<'a, T>, error::BorrowMutError> {
+    pub fn try_borrow_mut(&self) -> Result<RefMut<'_, T>, error::BorrowMutError> {
         match BorrowRefMut::new(&self.borrow) {
             Some(b) => Ok(RefMut {
                 _value: unsafe { &mut *self.value.get() },
@@ -365,7 +365,7 @@ impl<'b> BorrowRef<'b> {
         }
         borrow.flag.set(flag + 1);
         borrow.push(get_caller());
-        Some(BorrowRef { borrow: borrow })
+        Some(BorrowRef { borrow })
     }
 }
 
