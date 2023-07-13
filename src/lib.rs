@@ -400,8 +400,7 @@ impl<'b, T: ?Sized + 'b> Ref<'b, T> {
     {
         Ref {
             _value: f(&*orig._value),
-            _borrow: BorrowRef::new(&orig._borrow.borrow)
-                .expect("this is already borrowed so it cannot fail"),
+            _borrow: orig._borrow,
         }
     }
 }
@@ -446,6 +445,41 @@ pub struct RefMut<'b, T: ?Sized + 'b> {
     // field accesses of the contained type via Deref
     _value: &'b mut T,
     _borrow: BorrowRefMut<'b>,
+}
+
+impl<'b, T: ?Sized + 'b> RefMut<'b, T> {
+    /// Makes a new `RefMut` for a component of the borrowed data, e.g., an enum
+    /// variant.
+    ///
+    /// The `RefCell` is already mutably borrowed, so this cannot fail.
+    ///
+    /// This is an associated function that needs to be used as
+    /// `RefMut::map(...)`. A method would interfere with methods of the same
+    /// name on the contents of a `RefCell` used through `Deref`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::cell::{RefCell, RefMut};
+    ///
+    /// let c = RefCell::new((5, 'b'));
+    /// {
+    ///     let b1: RefMut<'_, (u32, char)> = c.borrow_mut();
+    ///     let mut b2: RefMut<'_, u32> = RefMut::map(b1, |t| &mut t.0);
+    ///     assert_eq!(*b2, 5);
+    ///     *b2 = 42;
+    /// }
+    /// assert_eq!(*c.borrow(), (42, 'b'));
+    /// ```
+    pub fn map<U: ?Sized, F>(orig: RefMut<'b, T>, f: F) -> RefMut<'b, U>
+    where
+        F: FnOnce(&mut T) -> &mut U,
+    {
+        RefMut {
+            _value: f(&mut *orig._value),
+            _borrow: orig._borrow,
+        }
+    }
 }
 
 impl<'b, T: ?Sized> Deref for RefMut<'b, T> {
@@ -500,6 +534,17 @@ mod tests {
         drop(b);
 
         assert_eq!(a.borrow().0, 999);
+    }
+
+    #[test]
+    fn ok_borrow_mut_map() {
+        let a = RefCell::new((0, 1));
+        let b = a.borrow_mut();
+        let mut c = super::RefMut::map(b, |v| &mut v.0);
+        assert_eq!(*c, 0);
+        *c = 999;
+        drop(c);
+        assert_eq!(a.try_borrow().unwrap().0, 999);
     }
 
     #[should_panic]
