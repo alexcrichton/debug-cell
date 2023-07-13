@@ -270,7 +270,7 @@ impl<T: ?Sized> RefCell<T> {
         if locations.len() > 0 {
             msg.push_str("\ncurrent active borrows: \n");
             for b in locations.iter() {
-                msg.push_str(&format!("-------------------------\n{:?}\n", b));
+                msg.push_str(&format!("-------------------------\n{}\n", b));
             }
             msg.push_str("\n\n");
         }
@@ -353,8 +353,9 @@ struct BorrowRef<'b> {
 }
 
 impl<'b> BorrowRef<'b> {
-    #[cfg_attr(debug_assertions, inline(never))]
     #[cfg_attr(not(debug_assertions), inline)]
+    #[cfg_attr(debug_assertions, inline(never))]
+    #[cfg_attr(debug_assertions, track_caller)]
     fn new(borrow: &'b BorrowFlag) -> Option<BorrowRef<'b>> {
         let flag = borrow.flag.get();
         if flag == WRITING {
@@ -400,8 +401,9 @@ struct BorrowRefMut<'b> {
 }
 
 impl<'b> BorrowRefMut<'b> {
-    #[cfg_attr(debug_assertions, inline(never))]
     #[cfg_attr(not(debug_assertions), inline)]
+    #[cfg_attr(debug_assertions, inline(never))]
+    #[cfg_attr(debug_assertions, track_caller)]
     fn new(borrow: &'b BorrowFlag) -> Option<BorrowRefMut<'b>> {
         if borrow.flag.get() != UNUSED {
             return None;
