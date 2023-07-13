@@ -27,8 +27,77 @@
 //! // library's `RefCell`
 //! let b = r.borrow_mut();
 //! ```
-
 #![deny(missing_docs)]
+
+/// Error kind ported from nightly std
+pub mod error {
+    fn locations_display(locations: &[super::Location]) -> String {
+        locations
+            .iter()
+            .map(|location| format!("[{location}]"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+    /// An error returned by [`RefCell::try_borrow`].
+    #[non_exhaustive]
+    #[derive(Debug)]
+    pub struct BorrowError {
+        /// Debug-only location of attempted borrow
+        #[cfg(debug_assertions)]
+        pub attempted_at: super::Location,
+        /// Debug-only location of all current locations
+        #[cfg(debug_assertions)]
+        pub already_borrowed_at: Vec<super::Location>,
+    }
+
+    impl std::fmt::Display for BorrowError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            #[cfg(debug_assertions)]
+            {
+                write!(
+                    f,
+                    "Value is already borrowed mutably at [{}]",
+                    locations_display(&self.already_borrowed_at)
+                )
+            }
+            #[cfg(not(debug_assertions))]
+            {
+                write!(f, "Value is already borrowed mutably")
+            }
+        }
+    }
+
+    impl std::error::Error for BorrowMutError {}
+
+    /// An error returned by [`RefCell::try_borrow_mut`].
+    #[derive(Debug)]
+    #[non_exhaustive]
+    pub struct BorrowMutError {
+        /// Debug-only location of attempted borrow
+        #[cfg(debug_assertions)]
+        pub attempted_at: super::Location,
+        /// Debug-only locations of all current borrows
+        #[cfg(debug_assertions)]
+        pub already_borrowed_at: Vec<super::Location>,
+    }
+
+    impl std::fmt::Display for BorrowMutError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            #[cfg(debug_assertions)]
+            {
+                write!(
+                    f,
+                    "Value is already borrowed at [{}]",
+                    locations_display(&self.already_borrowed_at)
+                )
+            }
+            #[cfg(not(debug_assertions))]
+            {
+                write!(f, "Value is already borrowed")
+            }
+        }
+    }
+}
 
 #[cfg(debug_assertions)]
 extern crate backtrace;
@@ -48,7 +117,7 @@ pub struct RefCell<T: ?Sized> {
 type Location = ();
 
 #[cfg(debug_assertions)]
-type Location = backtrace::Backtrace;
+type Location = &'static std::panic::Location<'static>;
 
 /// An enumeration of values returned from the `state` method on a `RefCell<T>`.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -83,9 +152,10 @@ impl<T> RefCell<T> {
     }
 
     /// Consumes the `RefCell`, returning the wrapped value.
+    #[cfg_attr(debug_assertions, track_caller)]
     pub fn into_inner(self) -> T {
         debug_assert!(self.borrow.flag.get() == UNUSED);
-        unsafe { self.value.into_inner() }
+        self.value.into_inner()
     }
 }
 
@@ -99,6 +169,7 @@ impl<T: ?Sized> RefCell<T> {
     ///
     /// Panics if the value is currently mutably borrowed.
     #[cfg_attr(debug_assertions, inline(never))]
+    #[cfg_attr(debug_assertions, track_caller)]
     pub fn borrow<'a>(&'a self) -> Ref<'a, T> {
         match BorrowRef::new(&self.borrow) {
             Some(b) => Ref {
@@ -106,6 +177,37 @@ impl<T: ?Sized> RefCell<T> {
                 _borrow: b,
             },
             None => self.panic("mutably borrowed"),
+        }
+    }
+    /// Immutably borrows the wrapped value.
+    ///
+    /// The borrow lasts until the returned `Ref` exits scope. Multiple
+    /// immutable borrows can be taken out at the same time.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value is currently mutably borrowed.
+    #[cfg_attr(debug_assertions, inline(never))]
+    #[cfg_attr(debug_assertions, track_caller)]
+    pub fn try_borrow<'a>(&'a self) -> Result<Ref<'a, T>, crate::error::BorrowError> {
+        match BorrowRef::new(&self.borrow) {
+            Some(b) => Ok(Ref {
+                _value: unsafe { &*self.value.get() },
+                _borrow: b,
+            }),
+            None => {
+                #[cfg(debug_assertions)]
+                {
+                    Err(crate::error::BorrowError {
+                        attempted_at: get_caller(),
+                        already_borrowed_at: self.borrow.locations.borrow().clone(),
+                    })
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    Err(crate::error::BorrowError {})
+                }
+            }
         }
     }
 
@@ -118,6 +220,7 @@ impl<T: ?Sized> RefCell<T> {
     ///
     /// Panics if the value is currently borrowed.
     #[cfg_attr(debug_assertions, inline(never))]
+    #[cfg_attr(debug_assertions, track_caller)]
     pub fn borrow_mut<'a>(&'a self) -> RefMut<'a, T> {
         match BorrowRefMut::new(&self.borrow) {
             Some(b) => RefMut {
@@ -125,6 +228,35 @@ impl<T: ?Sized> RefCell<T> {
                 _borrow: b,
             },
             None => self.panic("borrowed"),
+        }
+    }
+
+    /// Tries borrowing the wrapped value mutably.
+    ///
+    /// The borrow lasts until the returned `RefMut` exits scope. The value
+    /// cannot be borrowed while this borrow is active.
+    ///
+    #[cfg_attr(debug_assertions, inline(never))]
+    #[cfg_attr(debug_assertions, track_caller)]
+    pub fn try_borrow_mut<'a>(&'a self) -> Result<RefMut<'a, T>, error::BorrowMutError> {
+        match BorrowRefMut::new(&self.borrow) {
+            Some(b) => Ok(RefMut {
+                _value: unsafe { &mut *self.value.get() },
+                _borrow: b,
+            }),
+            None => {
+                #[cfg(debug_assertions)]
+                {
+                    Err(error::BorrowMutError {
+                        attempted_at: get_caller(),
+                        already_borrowed_at: self.borrow.locations.borrow().clone(),
+                    })
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    Err(error::BorrowMutError {})
+                }
+            }
         }
     }
 
@@ -145,7 +277,7 @@ impl<T: ?Sized> RefCell<T> {
             }
             msg.push_str("\n\n");
         }
-        panic!(msg)
+        panic!("{}", msg)
     }
 }
 
@@ -153,7 +285,9 @@ impl<T: ?Sized> RefCell<T> {
 impl BorrowFlag {
     #[inline]
     fn new() -> BorrowFlag {
-        BorrowFlag { flag: Cell::new(UNUSED) }
+        BorrowFlag {
+            flag: Cell::new(UNUSED),
+        }
     }
 
     #[inline]
@@ -185,10 +319,11 @@ impl BorrowFlag {
 #[inline]
 fn get_caller() -> Location {}
 
-#[inline(never)]
 #[cfg(debug_assertions)]
+#[inline(never)]
+#[track_caller]
 fn get_caller() -> Location {
-    backtrace::Backtrace::new()
+    std::panic::Location::caller()
 }
 
 unsafe impl<T: ?Sized> Send for RefCell<T> where T: Send {}
@@ -200,13 +335,12 @@ impl<T: Clone> Clone for RefCell<T> {
     }
 }
 
-impl<T:Default> Default for RefCell<T> {
+impl<T: Default> Default for RefCell<T> {
     #[inline]
     fn default() -> RefCell<T> {
         RefCell::new(Default::default())
     }
 }
-
 
 impl<T: ?Sized + PartialEq> PartialEq for RefCell<T> {
     #[inline]
@@ -226,7 +360,9 @@ impl<'b> BorrowRef<'b> {
     #[cfg_attr(not(debug_assertions), inline)]
     fn new(borrow: &'b BorrowFlag) -> Option<BorrowRef<'b>> {
         let flag = borrow.flag.get();
-        if flag == WRITING { return None }
+        if flag == WRITING {
+            return None;
+        }
         borrow.flag.set(flag + 1);
         borrow.push(get_caller());
         Some(BorrowRef { borrow: borrow })
@@ -255,7 +391,6 @@ pub struct Ref<'b, T: ?Sized + 'b> {
     _borrow: BorrowRef<'b>,
 }
 
-
 impl<'b, T: ?Sized> Deref for Ref<'b, T> {
     type Target = T;
     fn deref(&self) -> &T {
@@ -271,10 +406,12 @@ impl<'b> BorrowRefMut<'b> {
     #[cfg_attr(debug_assertions, inline(never))]
     #[cfg_attr(not(debug_assertions), inline)]
     fn new(borrow: &'b BorrowFlag) -> Option<BorrowRefMut<'b>> {
-        if borrow.flag.get() != UNUSED { return None }
+        if borrow.flag.get() != UNUSED {
+            return None;
+        }
         borrow.flag.set(WRITING);
         borrow.push(get_caller());
-        Some(BorrowRefMut { borrow: borrow })
+        Some(BorrowRefMut { borrow })
     }
 }
 
@@ -294,7 +431,6 @@ pub struct RefMut<'b, T: ?Sized + 'b> {
     _value: &'b mut T,
     _borrow: BorrowRefMut<'b>,
 }
-
 
 impl<'b, T: ?Sized> Deref for RefMut<'b, T> {
     type Target = T;
