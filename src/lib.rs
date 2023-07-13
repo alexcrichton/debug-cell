@@ -31,6 +31,7 @@
 
 /// Error kind ported from nightly std
 pub mod error {
+    #[cfg(debug_assertions)]
     fn locations_display(locations: &[super::Location]) -> String {
         locations
             .iter()
@@ -170,7 +171,11 @@ impl<T: ?Sized> RefCell<T> {
     pub fn borrow(&self) -> Ref<'_, T> {
         match self.try_borrow() {
             Ok(value) => value,
-            Err(message) => panic!("Borrowing immutably failed: {}", message),
+            Err(message) => panic!(
+                "Borrowing {} immutably failed: {}",
+                std::any::type_name::<Self>(),
+                message
+            ),
         }
     }
     /// Immutably borrows the wrapped value.
@@ -218,7 +223,11 @@ impl<T: ?Sized> RefCell<T> {
     pub fn borrow_mut(&self) -> RefMut<'_, T> {
         match self.try_borrow_mut() {
             Ok(value) => value,
-            Err(message) => panic!("Borrowing mutably failed: {}", message),
+            Err(message) => panic!(
+                "Borrowing {} mutably failed: {}",
+                std::any::type_name::<Self>(),
+                message
+            ),
         }
     }
 
