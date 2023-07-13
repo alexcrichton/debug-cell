@@ -51,6 +51,8 @@ pub mod error {
         pub already_borrowed_at: Vec<super::Location>,
     }
 
+    impl std::error::Error for BorrowError {}
+
     impl std::fmt::Display for BorrowError {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             #[cfg(debug_assertions)]
