@@ -250,26 +250,6 @@ impl<T: ?Sized> RefCell<T> {
             }
         }
     }
-
-    #[cfg(not(debug_assertions))]
-    fn panic(&self, msg: &str) -> ! {
-        panic!("RefCell<T> already {}", msg)
-    }
-
-    #[cfg(debug_assertions)]
-    #[allow(unused_must_use)]
-    fn panic(&self, msg: &str) -> ! {
-        let mut msg = format!("RefCell<T> already {}", msg);
-        let locations = self.borrow.locations.borrow();
-        if locations.len() > 0 {
-            msg.push_str("\ncurrent active borrows: \n");
-            for b in locations.iter() {
-                msg.push_str(&format!("-------------------------\n{}\n", b));
-            }
-            msg.push_str("\n\n");
-        }
-        panic!("{}", msg)
-    }
 }
 
 #[cfg(not(debug_assertions))]
