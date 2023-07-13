@@ -1,4 +1,5 @@
 [package]
+edition = "2021"
 name = "debug-cell"
 version = "0.1.1"
 authors = ["Alex Crichton <alex@alexcrichton.com>"]
@@ -14,7 +15,6 @@ where known borrows were created will be printed out as well.
 """
 
 [dependencies]
-backtrace = "0.3"
 
 [[test]]
 name = "smoke"
